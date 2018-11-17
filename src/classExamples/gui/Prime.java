@@ -163,5 +163,4 @@ public class Prime extends JFrame {
 		 }
 		
 	}
-
 }
