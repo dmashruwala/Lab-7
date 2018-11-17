@@ -4,7 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -13,8 +15,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
-import classExamples.gui.PrimeNumGen.CancelOption;
-import classExamples.gui.PrimeNumGen.UserInput;
 
 public class Prime extends JFrame {
 	
@@ -23,14 +23,14 @@ public class Prime extends JFrame {
 	private final JButton cancel = new JButton("Cancel");
 	private volatile boolean close = false;
 	private final Prime thisFrame;
-	
-	private void setup() {
-		getContentPane().setLayout(new BorderLayout());
-		getContentPane().add(start, BorderLayout.SOUTH);
-		getContentPane().add(cancel, BorderLayout.EAST);
-		getContentPane().add( new JScrollPane(aTextField),  BorderLayout.CENTER);
+	private final int processors = Runtime.getRuntime().availableProcessors();
+	private static List<Integer> primeList = Collections.synchronizedList(new ArrayList<Integer>());
+
+	public static void main(String[] args) {
+		Prime prime = new Prime("Prime Number Lister");
+		prime.addActionListeners();
+		prime.setVisible(true);
 	}
-		
 	
 	private Prime(String title) {
 		super(title);
@@ -39,16 +39,11 @@ public class Prime extends JFrame {
 		aTextField.setEditable(false);
 		setSize(400, 200);
 		setLocationRelativeTo(null);
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-}
-	
-	public static void main(String[] args) {
-		Prime prime = new Prime("Prime Number Lister");
-		prime.addActionListeners();
-		prime.setVisible(true);
-		
-	}
-	
+		getContentPane().setLayout(new BorderLayout());
+		getContentPane().add(start, BorderLayout.SOUTH);
+		getContentPane().add(cancel, BorderLayout.EAST);
+		getContentPane().add( new JScrollPane(aTextField),  BorderLayout.CENTER);
+	}	
 	
 	private class CancelOption implements ActionListener{
 		public void actionPerformed(ActionEvent arg0){
@@ -79,6 +74,7 @@ public class Prime extends JFrame {
 						start.setEnabled(false);
 						cancel.setEnabled(true);
 						close = false;
+						new Thread(new UserInput(max)).start();
 					}
 				}});
 		}
@@ -147,4 +143,25 @@ public class Prime extends JFrame {
 			});
 		}
 	}
+	
+	private class Processing implements Runnable{
+		 final int max;
+		 private Semaphore sema = new Semaphore(processors);
+		 private Processing(int max) {
+			 this.max = max;
+		 }
+		 public void run() {
+			 for(int i = 0; i < processors; i++) {
+				 try {
+					 sema.acquire();
+					 }
+				 catch (InterruptedException exception) {
+					 exception.printStackTrace();
+				 }
+			 }
+			 
+		 }
+		
+	}
+
 }
