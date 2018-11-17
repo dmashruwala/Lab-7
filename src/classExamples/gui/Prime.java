@@ -24,8 +24,7 @@ public class Prime extends JFrame {
 	private volatile boolean close = false;
 	private final Prime thisFrame;
 	private final int processors = Runtime.getRuntime().availableProcessors();
-	private static List<Integer> primeList = Collections.synchronizedList(new ArrayList<Integer>());
-
+	
 	public static void main(String[] args) {
 		Prime prime = new Prime("Prime Number Lister");
 		prime.addActionListeners();
@@ -79,13 +78,6 @@ public class Prime extends JFrame {
 				}});
 		}
 	
-	private boolean isPrime( int i){
-		for( int x=2; x < i -1; x++)
-			if( i % x == 0  )
-				return false;
-		
-		return true;
-	}
 	private class UserInput implements Runnable{
 		private final int max;
 		private final long startTime;
@@ -144,6 +136,14 @@ public class Prime extends JFrame {
 		}
 	}
 	
+	private boolean isPrime( int i){
+		for( int x=2; x < i -1; x++)
+			if( i % x == 0  )
+				return false;
+		
+		return true;
+	}
+	
 	private class Processing implements Runnable{
 		 final int max;
 		 private Semaphore sema = new Semaphore(processors);
@@ -163,4 +163,5 @@ public class Prime extends JFrame {
 		 }
 		
 	}
+
 }
