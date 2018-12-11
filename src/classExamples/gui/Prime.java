@@ -60,7 +60,8 @@ public class Prime extends JFrame {
 				public void actionPerformed(ActionEvent e){
 					
 					String num = JOptionPane.showInputDialog("Enter a large integer");
-					Integer max =null;								
+					Integer max =null;
+					primenum.clear();
 					try{
 						max = Integer.parseInt(num);
 					}
