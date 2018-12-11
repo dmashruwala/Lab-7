@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -23,7 +24,9 @@ public class Prime extends JFrame {
 	private final JButton cancel = new JButton("Cancel");
 	private volatile boolean close = false;
 	private final Prime thisFrame;
-	private final int processors = Runtime.getRuntime().availableProcessors();
+	private static List <Integer> primenum = Collections.synchronizedList(new ArrayList<Integer>());
+	private static final int processors = Runtime.getRuntime().availableProcessors();
+	private static long starttime;
 	
 	public static void main(String[] args) {
 		Prime prime = new Prime("Prime Number Lister");
@@ -57,8 +60,7 @@ public class Prime extends JFrame {
 				public void actionPerformed(ActionEvent e){
 					
 					String num = JOptionPane.showInputDialog("Enter a large integer");
-					Integer max =null;
-					
+					Integer max =null;								
 					try{
 						max = Integer.parseInt(num);
 					}
@@ -73,70 +75,70 @@ public class Prime extends JFrame {
 						start.setEnabled(false);
 						cancel.setEnabled(true);
 						close = false;
-						new Thread(new UserInput(max)).start();
+						new Thread(new Processing(max)).start();
 					}
 				}});
 		}
 	
-	private class UserInput implements Runnable{
+	private class FindPrime implements Runnable{
+		private final int begin;
 		private final int max;
-		private final long startTime;
+		private final Semaphore sem;
 		
-		private UserInput(int num){
-			this.max = num;
-			this.startTime = System.currentTimeMillis();
+		private FindPrime(int begin, int max, Semaphore s) {
+			this.begin = begin;
+			this.max = max;
+			this.sem = s;
 		}
 		
-		public void run(){
-			long lastUpdate = System.currentTimeMillis();
-			List<Integer> list = new ArrayList<Integer>();
-			for (int i = 1; i < max && ! close; i++) {
-				if( isPrime(i)){
-					list.add(i);
-						
-					if( System.currentTimeMillis() - lastUpdate > 500){
-						float time = (System.currentTimeMillis() -startTime )/1000f;
-						final String outString= "Found " + list.size() + " in " + i + " of " + max + " " 
-									+ time + " seconds ";
-						
-						SwingUtilities.invokeLater( new Runnable(){
+		public void run() {
+			long last = System.currentTimeMillis();
+			for(int x = begin; x < max && !close; x = x + processors) {
+				if(isPrime(x)) {
+					primenum.add(x);
+					if(System.currentTimeMillis() - last > 500) {
+						float time = (System.currentTimeMillis() - starttime) /1000f;
+						final String output = "Found" + primenum.size() + "prime numbers in" + x + "seconds.";
+						SwingUtilities.invokeLater(new Runnable() {
 							@Override
-							public void run(){
-								aTextField.setText(outString);
+							public void run() {
+								aTextField.setText(output);
 							}
 						});
-						
-						lastUpdate = System.currentTimeMillis();	
+						last = System.currentTimeMillis();
 					}
 				}
 			}
-			
-			final StringBuffer buff = new StringBuffer();
-			
-			for( Integer i2 : list)
-				buff.append(i2 + "\n");
-			
-			if( close)
-				buff.append("cancelled\n");
-			
-			float time = (System.currentTimeMillis() - startTime )/1000f;
-			buff.append("Time = " + time + " seconds " );
-			
-			SwingUtilities.invokeLater( new Runnable(){
-				@Override
-				public void run(){
-					
-					close = false;
-					start.setEnabled(true);
-					cancel.setEnabled(false);
-					aTextField.setText( (close ? "cancelled " : "") +  buff.toString());
-					
-				}
-			});
+			sem.release();
 		}
+		
 	}
 	
-	private boolean isPrime( int i){
+	private void updateInput() {
+		final StringBuffer string = new StringBuffer();
+		synchronized(primenum) {
+			Collections.sort(primenum);
+			for(Integer z : primenum) {
+				string.append(z + "\n");
+			}
+		}
+		if(close) {
+			string.append("Closed\n");
+		}
+		float time = (System.currentTimeMillis() - starttime) / 1000f;
+		string.append("Time: " + time + "seconds.");
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				close = false;
+				start.setEnabled(true);
+				cancel.setEnabled(true);
+				aTextField.setText((close ? "Closed" : "")+string.toString());
+			}
+		});
+	}
+	
+	private boolean isPrime(int i){
 		for( int x=2; x < i -1; x++)
 			if( i % x == 0  )
 				return false;
@@ -145,23 +147,35 @@ public class Prime extends JFrame {
 	}
 	
 	private class Processing implements Runnable{
-		 final int max;
+		 private final int max;
 		 private Semaphore sema = new Semaphore(processors);
 		 private Processing(int max) {
 			 this.max = max;
 		 }
 		 public void run() {
-			 for(int i = 0; i < processors; i++) {
+			 starttime = System.currentTimeMillis();
+			 for(int i = 0; i < processors; i ++) {
 				 try {
 					 sema.acquire();
-					 }
-				 catch (InterruptedException exception) {
+				 }
+				 catch(InterruptedException exception) {
 					 exception.printStackTrace();
 				 }
-			 }
-			 
+			 FindPrime findPrime = new FindPrime(i+1, max, sema);
+			 new Thread(findPrime).start();
 		 }
+		 for(int j = 0; j < processors; j++) {
+			 try {
+				 sema.acquire();
+			 }
+			 catch(InterruptedException exception) {
+				 exception.printStackTrace();
+			 }
+		 }
+		 updateInput();
 		
 	}
 
 }
+}
+
